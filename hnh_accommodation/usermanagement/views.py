@@ -61,7 +61,6 @@ def login(request):
         })
     else:
         return Response({'message': 'Invalid username or password'}, status=status.HTTP_401_UNAUTHORIZED)
-    
 # ------------------ USER COLLECTIONS CRUD VIEWS -----------------------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated]) # handled authenticated user
