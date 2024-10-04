@@ -2,6 +2,8 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.conf import settings 
+
 
 
 class HUser(AbstractUser):
@@ -67,3 +69,14 @@ class HGuest(HUser):
         verbose_name, verbose_name_plural = "Guest", "Guests"
 
 
+class Payment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    room = models.ForeignKey('hostel.Room', on_delete=models.SET_NULL, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reference = models.CharField(max_length=200, unique=True)  
+    status = models.CharField(max_length=20, default='pending')
+    payment_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.reference} - {self.status}"

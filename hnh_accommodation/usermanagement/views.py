@@ -1,5 +1,5 @@
 
-from .models import HGuest, Collection
+from .models import HGuest, Collection, Payment
 from hostel.models import Room
 from .serializers import CollectionSerializer
 from .serializers import UserSerializer
@@ -12,9 +12,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
-
-
-
+import requests
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+import uuid
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -116,3 +117,78 @@ def remove_from_collection(request, user_id):
     collection.rooms.remove(room)
 
     return Response({'message': 'Room removed from collection successfully'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def initialize_payment(request, room_id):
+    room = get_object_or_404(Room, room_id=room_id)
+    user = request.user
+    amount = room.price  
+
+    paystack_amount = int(amount * 100)
+
+    payment_reference = str(uuid.uuid4())
+
+    headers = {
+        'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
+        'Content-Type': 'application/json',
+    }
+    data = {
+        'email': user.email,  
+        'amount': paystack_amount,
+        'reference': payment_reference,
+        'callback_url': 'http://your-site.com/verify-payment/'  
+    }
+    
+    response = requests.post('https://api.paystack.co/transaction/initialize', json=data, headers=headers)
+
+    if response.status_code == 200:
+        payment_data = response.json()
+
+        payment = Payment.objects.create(
+            user=user,
+            room=room,
+            amount=amount,
+            reference=payment_reference,
+            status='pending'
+        )
+        
+        return Response({
+            'authorization_url': payment_data['data']['authorization_url'],
+            'reference': payment_reference
+        }, status=status.HTTP_200_OK)
+
+    return Response({'error': 'Payment initialization failed'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def verify_payment(request):
+    reference = request.query_params.get('reference')
+    if not reference:
+        return Response({'error': 'Reference not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    payment = get_object_or_404(Payment, reference=reference)
+
+    headers = {
+        'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
+        'Content-Type': 'application/json',
+    }
+
+    response = requests.get(f'https://api.paystack.co/transaction/verify/{reference}', headers=headers)
+
+    if response.status_code == 200:
+        payment_data = response.json()
+
+        if payment_data['data']['status'] == 'success':
+            payment.status = 'confirmed'
+            payment.save()
+
+            return Response({'message': 'Payment successful'}, status=status.HTTP_200_OK)
+        else:
+            payment.status = 'failed'
+            payment.save()
+
+    return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
