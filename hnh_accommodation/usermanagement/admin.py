@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import HUser, HManager, HGuest, Collection
+from .models import HUser, HManager, HGuest, Collection,Payment
 from hostel.admin import admin_site
 
 class ManagerPanel(admin.ModelAdmin):
@@ -22,8 +22,12 @@ class CollectionPanel(admin.ModelAdmin):
 class HUserPanel(admin.ModelAdmin):
     list_display = ('username', 'email')
 
+class PaymentPanel(admin.ModelAdmin):
+    lsit_display = ('user','room', 'amount', 'reference', 'status', 'payment_date ')
+
 
 admin_site.register(HUser, HUserPanel)
 admin_site.register(HManager, ManagerPanel)
 admin_site.register(HGuest)
 admin_site.register(Collection, CollectionPanel)
+admin_site.register(Payment, PaymentPanel)

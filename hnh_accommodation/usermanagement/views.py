@@ -16,7 +16,7 @@ import requests
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 import uuid
-
+import logging
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -119,15 +119,21 @@ def remove_from_collection(request, user_id):
     return Response({'message': 'Room removed from collection successfully'}, status=status.HTTP_200_OK)
 
 
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def initialize_payment(request, room_id):
+    logger = logging.getLogger(__name__) 
+
     room = get_object_or_404(Room, room_id=room_id)
     user = request.user
-    amount = room.price  
 
+    print(room.price, user.email)
+
+    if not user.email:
+        return Response({'error': 'User email is required for payment'}, status=status.HTTP_400_BAD_REQUEST)
+
+    amount = room.price
     paystack_amount = int(amount * 100)
-
     payment_reference = str(uuid.uuid4())
 
     headers = {
@@ -135,18 +141,19 @@ def initialize_payment(request, room_id):
         'Content-Type': 'application/json',
     }
     data = {
-        'email': user.email,  
+        'email': user.email,
         'amount': paystack_amount,
         'reference': payment_reference,
-        'callback_url': 'http://your-site.com/verify-payment/'  
+        'callback_url': ''
     }
-    
+
     response = requests.post('https://api.paystack.co/transaction/initialize', json=data, headers=headers)
+
+    logger.info(f"Paystack response: {response.status_code} - {response.text}")
 
     if response.status_code == 200:
         payment_data = response.json()
-
-        payment = Payment.objects.create(
+        Payment.objects.create(
             user=user,
             room=room,
             amount=amount,
@@ -160,7 +167,6 @@ def initialize_payment(request, room_id):
         }, status=status.HTTP_200_OK)
 
     return Response({'error': 'Payment initialization failed'}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @api_view(['GET'])
