@@ -2,9 +2,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
-
-from .models import Hostel, Room
-from .serializers import HostelSerializer, RoomSerializer
+from django.utils import timezone
+from .models import Hostel, Room, Booking
+from .serializers import HostelSerializer, RoomSerializer,BookingSerializer
 from .filters import HostelFilter, RoomFilter
 from django.db.models import Q
 
@@ -223,3 +223,28 @@ def delete_room(request, hostel_id, room_id):
 
     room.delete()
     return Response({'message': 'Room deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_booking(request, room_id):
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return Response({'message': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    existing_booking = Booking.objects.filter(room=room, status__in=['confirmed', 'pending']).exists()
+
+    if existing_booking:
+        return Response({'message': 'Room is already booked or pending approval'}, status=status.HTTP_400_BAD_REQUEST)
+
+    booking = Booking(
+        user=request.user,
+        room=room,
+        status='pending'  
+    )
+    booking.save()
+
+    room.number_available -= 1
+    room.save()
+    serializer = BookingSerializer(booking)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)

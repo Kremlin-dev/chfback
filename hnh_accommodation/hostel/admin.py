@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Hostel, Room, Amenity
+from .models import Hostel, Room, Amenity, Booking
 
 class CustomAdminSite(admin.AdminSite):
     site_header = 'Campus Hostels Finder'
@@ -15,8 +15,10 @@ class HostelPanel(admin.ModelAdmin):
 class RoomPanel(admin.ModelAdmin):
     list_display = ('hostel', 'room_id', 'price',
                     'bedspace', 'number_available')
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ('user', 'room', 'booking_date', 'status')
 
-
+admin_site.register(Booking, BookingAdmin)
 admin_site.register(Hostel, HostelPanel)
 admin_site.register(Room, RoomPanel)
 admin_site.register(Amenity)

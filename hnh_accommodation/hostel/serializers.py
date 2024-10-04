@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Hostel, Room, Amenity
+from .models import Hostel, Room, Amenity, Booking
 # , Gallery
 
 
@@ -67,6 +67,14 @@ class RoomSerializer(serializers.ModelSerializer):
 
     def get_hostel_location(self, obj):
         return obj.hostel.location
+    
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Booking
+        fields = ['id', 'user', 'room', 'status', 'booking_date']
+        read_only_fields = ['id', 'user', 'booking_date', 'status']
 
     # def create(self, validated_data):
     #     gallery_data = validated_data.pop('gallery', [])
