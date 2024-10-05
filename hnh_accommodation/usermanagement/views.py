@@ -50,7 +50,6 @@ def login(request):
     if user is not None:
         django_login(request, user)
         
-        # Manually create tokens using the token classes
         refresh = RefreshToken.for_user(user)
         
         return Response({
@@ -117,8 +116,6 @@ def remove_from_collection(request, user_id):
     collection.rooms.remove(room)
 
     return Response({'message': 'Room removed from collection successfully'}, status=status.HTTP_200_OK)
-
-
 
 @api_view(['POST'])
 def initialize_payment(request, room_id):
@@ -206,3 +203,4 @@ def verify_payment(request):
             return Response({'message': 'Payment failed'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
+
