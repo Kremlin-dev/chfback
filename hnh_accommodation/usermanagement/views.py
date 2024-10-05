@@ -1,6 +1,6 @@
 
 from .models import HGuest, Collection, Payment
-from hostel.models import Room
+from hostel.models import Room, Booking
 from .serializers import CollectionSerializer
 from .serializers import UserSerializer
 from .views_auth import MyTokenObtainPairView
@@ -192,9 +192,17 @@ def verify_payment(request):
             payment.status = 'confirmed'
             payment.save()
 
-            return Response({'message': 'Payment successful'}, status=status.HTTP_200_OK)
+            try:
+                booking = Booking.objects.get(user=payment.user, room=payment.room, status='pending')
+                booking.status = 'confirmed'
+                booking.save()
+            except Booking.DoesNotExist:
+                return Response({'error': 'No pending booking found for this payment'}, status=status.HTTP_404_NOT_FOUND)
+
+            return Response({'message': 'Payment successful, booking confirmed'}, status=status.HTTP_200_OK)
         else:
             payment.status = 'failed'
             payment.save()
+            return Response({'message': 'Payment failed'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
