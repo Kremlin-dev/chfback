@@ -13,5 +13,6 @@ urlpatterns = [
     path('collections/<str:user_id>/add/', add_to_collection, name='add_to_collection'),
     path('collections/<str:user_id>/remove/', remove_from_collection, name='remove_from_collection'),
     path('initialize-payment/<str:room_id>/', views.initialize_payment, name='initialize_payment'),
-    path('verify-payment/', views.verify_payment, name='verify_payment'),
+    path('verify-payment/<str:reference>/', views.verify_payment, name='verify_payment'),
+    path('webhook/', views.paystack_webhook, name='webhook'),
 ]

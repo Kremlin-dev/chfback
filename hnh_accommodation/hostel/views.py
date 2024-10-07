@@ -197,7 +197,6 @@ def create_room(request, hostel_id):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_room(request, hostel_id, room_id):
@@ -232,10 +231,10 @@ def create_booking(request, room_id):
     except Room.DoesNotExist:
         return Response({'message': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    existing_booking = Booking.objects.filter(room=room, status__in=['confirmed', 'pending']).exists()
+    existing_booking = Booking.objects.filter(room=room, user=request.user, status__in=['confirmed', 'pending']).exists()
 
     if existing_booking:
-        return Response({'message': 'Room is already booked or pending approval'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'You already have an active booking for this room.'}, status=status.HTTP_400_BAD_REQUEST)
 
     booking = Booking(
         user=request.user,
@@ -246,5 +245,19 @@ def create_booking(request, room_id):
 
     room.number_available -= 1
     room.save()
-    serializer = BookingSerializer(booking)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    return Response({'message': 'Booking successful. Please proceed to payment.'}, status=status.HTTP_201_CREATED)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_booking_status(request, room_id):
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return Response({'message': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    existing_booking = Booking.objects.filter(user=request.user, room=room, status__in=['confirmed', 'pending']).exists()
+    
+    if existing_booking:
+        return Response({'booked': True}, status=status.HTTP_200_OK)
+    return Response({'booked': False}, status=status.HTTP_200_OK)

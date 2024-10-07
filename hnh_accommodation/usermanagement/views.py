@@ -14,9 +14,16 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 import requests
 from django.conf import settings
+from django.urls import reverse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+import json
 import uuid
 import logging
+logger = logging.getLogger(__name__)
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -141,7 +148,7 @@ def initialize_payment(request, room_id):
         'email': user.email,
         'amount': paystack_amount,
         'reference': payment_reference,
-        'callback_url': ''
+        'callback_url': "http://localhost:3000/verify-payment"
     }
 
     response = requests.post('https://api.paystack.co/transaction/initialize', json=data, headers=headers)
@@ -167,13 +174,17 @@ def initialize_payment(request, room_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def verify_payment(request):
-    reference = request.query_params.get('reference')
+def verify_payment(request, reference):
+    logger.info(f"Verifying payment for reference: {reference}")
+    
     if not reference:
         return Response({'error': 'Reference not provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-    payment = get_object_or_404(Payment, reference=reference)
+    try:
+        payment = get_object_or_404(Payment, reference=reference)
+    except Exception as e:
+        logger.error(f"Error fetching payment: {e}")
+        return Response({'error': 'Payment not found'}, status=status.HTTP_400_BAD_REQUEST)
 
     headers = {
         'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
@@ -182,9 +193,12 @@ def verify_payment(request):
 
     response = requests.get(f'https://api.paystack.co/transaction/verify/{reference}', headers=headers)
 
+    logger.info(f"Paystack response: {response.text}")
+
     if response.status_code == 200:
         payment_data = response.json()
-
+        logger.info(f"Payment data from Paystack: {payment_data}")
+  
         if payment_data['data']['status'] == 'success':
             payment.status = 'confirmed'
             payment.save()
@@ -204,3 +218,16 @@ def verify_payment(request):
 
     return Response({'error': 'Payment verification failed'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+def paystack_webhook(request):
+    if request.method == 'POST':
+        payload = json.loads(request.body)
+        
+        event = payload.get('event')
+        if event == 'charge.success':
+            
+            return JsonResponse({'status': 'success'}, status=200)
+
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
